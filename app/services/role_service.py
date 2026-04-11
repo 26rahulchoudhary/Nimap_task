@@ -18,6 +18,14 @@ def assign_role(db: Session, user_id: int, role_id: int):
     if not user or not role:
         return None
 
+    existing = db.query(UserRole).filter(
+        UserRole.user_id == user_id,
+        UserRole.role_id == role_id
+    ).first()
+
+    if existing:
+        return existing  # prevent duplicate
+
     user_role = UserRole(user_id=user_id, role_id=role_id)
     db.add(user_role)
     db.commit()
