@@ -26,4 +26,33 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_access_token({"sub": db_user.email})
-    return {"access_token": token, "token_type": "bearer"}
+    
+    # Initialize empty roles and permissions
+    roles = []
+    permissions = []
+    
+    # Try to get roles if the relationship exists
+    try:
+        if hasattr(db_user, 'roles') and db_user.roles:
+            roles = [{"id": role.id, "name": role.name} for role in db_user.roles]
+            # Get permissions from roles
+            for role in db_user.roles:
+                if hasattr(role, 'permissions') and role.permissions:
+                    for perm in role.permissions:
+                        perm_name = perm.name if hasattr(perm, 'name') else str(perm)
+                        if perm_name not in permissions:
+                            permissions.append(perm_name)
+    except Exception as e:
+        # If there's any error getting roles/permissions, continue without them
+        print(f"Note: Could not fetch roles/permissions: {e}")
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": db_user.id,
+            "email": db_user.email,
+            "roles": roles,
+            "permissions": permissions
+        }
+    }
