@@ -10,7 +10,7 @@ from app.services.document_service import (
 )
 from app.dependencies.rbac import require_permission
 
-router = APIRouter(prefix="/documents", tags=["Documents"])
+router = APIRouter(prefix="/document", tags=["Documents"])
 
 @router.post("/upload")
 def upload_document(

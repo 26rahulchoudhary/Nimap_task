@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.models.document import Document
 import uuid
 from fastapi import HTTPException
+from app.models.document_chunk import DocumentChunk
 
 UPLOAD_DIR = "uploads"
 
@@ -44,19 +45,33 @@ def get_document(db: Session, doc_id: int):
     return db.query(Document).filter(Document.document_id == doc_id).first()
 
 
-def delete_document(db: Session, doc_id: int):
-    doc = db.query(Document).filter(Document.document_id == doc_id).first()
+def delete_document(db: Session, document_id: int):
+    doc = db.query(Document).filter(Document.document_id == document_id).first()
 
     if not doc:
         return None
 
+    # Delete embeddings
+    db.query(DocumentChunk).filter(
+        DocumentChunk.document_id == document_id
+    ).delete()
+
+    # Delete file
     if os.path.exists(doc.file_path):
         os.remove(doc.file_path)
 
+    # Delete document
     db.delete(doc)
+
     db.commit()
     return doc
 
 
 def search_documents(db: Session, company: str):
-    return db.query(Document).filter(Document.company_name.ilike(f"%{company}%")).all()
+    results = (
+        db.query(Document)
+        .filter(Document.company_name.ilike(f"%{company}%"))
+        .all()
+    )
+
+    return results
