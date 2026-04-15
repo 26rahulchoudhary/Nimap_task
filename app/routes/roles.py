@@ -21,7 +21,8 @@ def create_role_api(
 @router.post("/users/assign-role")
 def assign_role_api( data: AssignRole,
     db: Session = Depends(get_db),
-    user = Depends(require_permission("*"))):
+    user = Depends(require_permission("*"))
+):
     result = assign_role(db, data.user_id, data.role_id)
 
     if not result:
@@ -46,5 +47,7 @@ def get_permissions(user_id: int, db: Session = Depends(get_db)):
         permissions.update(perms)
 
     return {"user_id": user_id, "permissions": list(permissions)}
+
+
 
 
