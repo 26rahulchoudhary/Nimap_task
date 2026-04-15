@@ -5,6 +5,7 @@ from app.schemas.user import UserCreate, UserLogin
 from app.services.auth_service import create_user, authenticate_user
 from app.auth.jwt_handler import create_access_token
 from app.models.user import User
+from app.dependencies.auth import get_current_user
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -27,24 +28,22 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
 
     token = create_access_token({"sub": db_user.email})
     
-    # Initialize empty roles and permissions
+    # Get roles and permissions from database
     roles = []
     permissions = []
     
-    # Try to get roles if the relationship exists
-    try:
-        if hasattr(db_user, 'roles') and db_user.roles:
-            roles = [{"id": role.id, "name": role.name} for role in db_user.roles]
-            # Get permissions from roles
-            for role in db_user.roles:
-                if hasattr(role, 'permissions') and role.permissions:
-                    for perm in role.permissions:
-                        perm_name = perm.name if hasattr(perm, 'name') else str(perm)
-                        if perm_name not in permissions:
-                            permissions.append(perm_name)
-    except Exception as e:
-        # If there's any error getting roles/permissions, continue without them
-        print(f"Note: Could not fetch roles/permissions: {e}")
+    # Get user's roles from the relationship
+    if db_user.roles:
+        roles = [{"id": role.id, "name": role.name} for role in db_user.roles]
+        
+        # Get permissions based on roles
+        from app.auth.rbac import ROLE_PERMISSIONS
+        for role in db_user.roles:
+            perms = ROLE_PERMISSIONS.get(role.name, [])
+            permissions.extend(perms)
+        
+        # Remove duplicates
+        permissions = list(set(permissions))
     
     return {
         "access_token": token,
@@ -55,4 +54,31 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
             "roles": roles,
             "permissions": permissions
         }
+    }
+
+
+@router.get("/me")
+def get_current_user_info(current_user: User = Depends(get_current_user)):
+    # Get roles and permissions from database
+    roles = []
+    permissions = []
+    
+    # Get user's roles from the relationship
+    if current_user.roles:
+        roles = [{"id": role.id, "name": role.name} for role in current_user.roles]
+        
+        # Get permissions based on roles
+        from app.auth.rbac import ROLE_PERMISSIONS
+        for role in current_user.roles:
+            perms = ROLE_PERMISSIONS.get(role.name, [])
+            permissions.extend(perms)
+        
+        # Remove duplicates
+        permissions = list(set(permissions))
+    
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "roles": roles,
+        "permissions": permissions
     }
